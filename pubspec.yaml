@@ -1,0 +1,124 @@
+name: myfinalpro
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0' # Suggested change: More compatible SDK range
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations: # Added for localization, common to have
+    sdk: flutter
+  intl: ^0.19.0 # موجود بالفعل، جيد!
+
+  video_player: ^2.8.2
+  font_awesome_flutter: ^10.6.0
+  smooth_page_indicator: ^1.1.0
+  flutter_native_splash: ^2.3.2
+  animated_splash_screen: ^1.3.0
+  shared_preferences: ^2.2.2
+  badges: ^3.1.2
+  confetti: ^0.7.0
+  http: ^1.1.0
+  http_parser: ^4.0.2
+  flutter_bloc: ^8.1.3
+  image_picker: ^1.0.7
+  equatable: ^2.0.5
+  json_annotation: ^4.8.1
+  dartz: ^0.10.1
+  dio: ^5.3.3
+  get_it: ^7.6.4
+  flutter_secure_storage: ^9.0.0
+  pdf: ^3.10.8
+  share_plus: ^9.0.0
+  path_provider: ^2.1.3
+  cupertino_icons: ^1.0.8
+  uuid: ^4.3.3 # ---!!! تمت إضافة هذه الحزمة هنا !!!---
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.6
+  json_serializable: ^6.7.1
+  flutter_launcher_icons: ^0.13.1
+  flutter_lints: ^4.0.0
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.png"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/image-removebg-preview (5) 2.png # Make sure this path is correct
+  android: true
+  ios: true
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/img/فهم/حزين/حزين-train/
+    - assets/img/فهم/حزين/حزين-test/
+    - assets/img/فهم/حزين/حزين-test/يوم/
+    - assets/img/فهم/حزين/حزين-test/شهر/
+    - assets/img/فهم/حزين/حزين-test/3 شهور/
+    - assets/img/فهم/فرحان/فرحان-train/
+    - assets/img/فهم/فرحان/فرحان-test/
+    - assets/img/فهم/فرحان/فرحان-test/يوم/
+    - assets/img/فهم/فرحان/فرحان-test/شهر/
+    - assets/img/فهم/فرحان/فرحان-test/3 شهور/
+    - assets/img/فهم/غضبان/غضبان-train/
+    - assets/img/فهم/غضبان/غضبان-test/
+    - assets/img/فهم/غضبان/غضبان-test/يوم/
+    - assets/img/فهم/غضبان/غضبان-test/شهر/
+    - assets/img/فهم/غضبان/غضبان-test/3 شهور/
+    - assets/img/فهم/خايف/خايف-train/
+    - assets/img/فهم/خايف/خايف-test/
+    - assets/img/فهم/خايف/خايف-test/يوم/
+    - assets/img/فهم/خايف/خايف-test/شهر/
+    - assets/img/فهم/خايف/خايف-test/3 شهور/
+    - assets/img/فهم/خجول/خجول-train/
+    - assets/img/فهم/خجول/خجول-test/
+    - assets/img/فهم/خجول/خجول-test/يوم/
+    - assets/img/فهم/خجول/خجول-test/شهر/
+    - assets/img/فهم/خجول/خجول-test/3 شهور/
+    - assets/img/فهم/مفكر/مفكر-train/
+    - assets/img/فهم/مفكر/مفكر-test/
+    - assets/img/فهم/مفكر/مفكر-test/يوم/
+    - assets/img/فهم/مفكر/مفكر-test/شهر/
+    - assets/img/فهم/مفكر/مفكر-test/3 شهور/
+    - assets/img/فهم/مندهش/مندهش-train/
+    - assets/img/فهم/مندهش/مندهش-test/
+    - assets/img/فهم/مندهش/مندهش-test/يوم/
+    - assets/img/فهم/مندهش/مندهش-test/شهر/
+    - assets/img/فهم/مندهش/مندهش-test/3 شهور/
+    - assets/objects/
+    - assets/images/ # This will include assets/images/logo.png used in flutter_icons
+    - assets/fonts/ # This includes NotoNaskhArabic-Regular.ttf and Cairo fonts
+
+    - assets/img2/التواصل اللفظي/اخذ او انتظار الدور/
+    - assets/img2/التواصل اللفظي/استخدام صيغة الشكر والأعتذار/
+    - assets/img2/التواصل اللفظي/التصرف في المواقف الاجتماعية/
+    - assets/img2/التواصل اللفظي/تحية الاخرين ورد التحية/صور/اشارة/
+    - assets/img2/التواصل اللفظي/تحية الاخرين ورد التحية/صور/موقف/
+    - assets/img2/التواصل اللفظي/تحية الاخرين ورد التحية/فيديو/
+    - assets/img2/التواصل اللفظي/تنمية الاخلاق والسلوكيات/
+    - assets/img2/التواصل اللفظي/توديع الاخرين عند الانصراف/صور/اشارة/
+    - assets/img2/التواصل اللفظي/توديع الاخرين عند الانصراف/صور/موقف/
+    - assets/img2/التواصل اللفظي/توديع الاخرين عند الانصراف/فيديو/
+    - assets/img2/التواصل غير اللفظي/اشارات وعلامات/
+
+  fonts:
+    - family: cairo
+      fonts:
+        - asset: assets/fonts/Cairo-Bold.ttf
+        - asset: assets/fonts/Cairo-Medium.ttf
+        - asset: assets/fonts/Cairo-Regular.ttf
+        - asset: assets/fonts/Cairo-SemiBold.ttf
+    - family: NotoNaskhArabic
+      fonts:
+        - asset: assets/fonts/NotoNaskhArabic-Regular.ttf
