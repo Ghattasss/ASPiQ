@@ -1,138 +1,331 @@
+import 'package:flutter/material.dart';
+import 'package:myfinalpro/test/models/quiz_model.dart';
+import 'package:myfinalpro/services/Api_services.dart';
+import 'package:myfinalpro/test/quiz_type1_screen.dart';
+import 'package:myfinalpro/test/QuizType2Screen.dart';
+import 'package:myfinalpro/test/end_test_screen.dart';
+import 'package:myfinalpro/screens/common/loading_indicator.dart';
+import 'package:myfinalpro/screens/common/error_display.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:myfinalpro/login/login_view.dart';
+
+
 class QuizManagerScreen extends StatefulWidget {
-  final int sessionId;
-  final int childSessionId;
+  final List<int> completedSessionDetailIds;
 
   const QuizManagerScreen({
-    Key? key,
-    required this.sessionId,
-    required this.childSessionId,
-  }) : super(key: key);
+    super.key,
+    required this.completedSessionDetailIds,
+  });
 
   @override
-  _QuizManagerScreenState createState() => _QuizManagerScreenState();
+  State<QuizManagerScreen> createState() => _QuizManagerScreenState();
 }
 
 class _QuizManagerScreenState extends State<QuizManagerScreen> {
+  Future<QuizSession?>? _quizSessionFuture;
+  QuizSession? _currentQuizSession;
   int _currentQuizStep = 0;
-  int _wrongAnswers = 0;
-  late Future<QuizSession> _quizSessionFuture;
+  String? _jwtToken;
+  bool _isCompletingStep = false;
+  int _wrongAnswersCount = 0;
+  static const int maxWrongAnswers = 1;
+  List<int> _attemptedTestDetailIds = [];
 
   @override
   void initState() {
     super.initState();
-    _quizSessionFuture = ApiService.fetchNextTestDetail(
-      widget.sessionId,
-      widget.childSessionId,
-    );
+    _attemptedTestDetailIds = [];
+    _loadTokenAndFetchData();
   }
 
-  void _handleAnswer(bool isCorrect) {
-    if (!isCorrect) {
-      setState(() {
-        _wrongAnswers++;
+  Future<void> _loadTokenAndFetchData() async {
+    setStateIfMounted(() {
+      _quizSessionFuture = null;
+      _currentQuizSession = null;
+      _currentQuizStep = 0;
+      _isCompletingStep = false;
+      _wrongAnswersCount = 0;
+      _attemptedTestDetailIds = [];
+    });
+    final prefs = await SharedPreferences.getInstance();
+    _jwtToken = prefs.getString('auth_token');
+    if (!mounted) return;
+    if (_jwtToken == null || _jwtToken!.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted)
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (context) => const LoginView()));
       });
+      setStateIfMounted(
+          () => _quizSessionFuture = Future.error("Token required"));
+    } else {
+      _loadQuizData();
+    }
+  }
+
+  void _loadQuizData() {
+    if (_jwtToken == null) return;
+    setStateIfMounted(() {
+      _quizSessionFuture = ApiService.fetchNextTestDetail(_jwtToken!);
+    });
+  }
+
+  void _handleIncorrectAnswerLocally() {
+    setStateIfMounted(() => _wrongAnswersCount++);
+    debugPrint(
+        "QuizManager: Incorrect answer processed. Total wrong answers: $_wrongAnswersCount");
+  }
+
+  Future<void> _completeQuizStep(QuizDetail detailToComplete,
+      {bool wasCorrect = true}) async {
+    if (_jwtToken == null || _isCompletingStep || _currentQuizSession == null) return;
+    setStateIfMounted(() => _isCompletingStep = true);
+
+    if (!wasCorrect) {
+      _handleIncorrectAnswerLocally();
     }
 
-    // For sessions with sessionId > 28, complete after first step
-    if (widget.sessionId > 28) {
-      _navigateToEndTest();
+    int idToMark = detailToComplete.id;
+    if (!_attemptedTestDetailIds.contains(idToMark) && idToMark > 0) {
+      _attemptedTestDetailIds.add(idToMark);
+      debugPrint(
+          "QuizManager: Added TEST detail ID $idToMark to _attemptedTestDetailIds. Current list: $_attemptedTestDetailIds");
+    }
+
+    if (_wrongAnswersCount > maxWrongAnswers) {
+      debugPrint(
+          "QuizManager: Test failed due to too many wrong answers ($_wrongAnswersCount).");
+      await _markRelevantDetailsAsNotCompleteOnFailure();
+      if (mounted) {
+        Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) => EndTestScreen(testPassed: false)));
+      }
+      setStateIfMounted(() => _isCompletingStep = false);
       return;
     }
 
-    // Original logic for other sessions
-    if (_wrongAnswers >= 3) {
-      _navigateToEndTest();
+    debugPrint(
+        "QuizManager: Completing Step ${_currentQuizStep + 1}. Sending TEST Item ID: $idToMark. Correct: $wasCorrect");
+    if (idToMark <= 0) {
+      debugPrint(
+          "QuizManager Error: Attempting to complete step with invalid TEST ID ($idToMark).");
+      setStateIfMounted(() => _isCompletingStep = false);
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('خطأ في بيانات الخطوة الحالية.')));
+      return;
+    }
+
+    bool success =
+        await ApiService.markTestDetailComplete(_jwtToken!, idToMark);
+    if (!mounted) {
+      _isCompletingStep = false;
+      return;
+    }
+
+    if (success) {
+      debugPrint(
+          "QuizManager: API complete for TEST detail ID $idToMark successful.");
+      // Determine if there's a next step based on session type and current step
+      bool hasNextStep = false;
+      final bool isSpecialSession = _currentQuizSession!.sessionId > 28;
+      if (isSpecialSession) {
+        // Special sessions have exactly 2 steps (details[0] and details[1])
+        hasNextStep = _currentQuizStep < 1; // Steps 0 and 1
+      } else {
+        // Other sessions use details[0] and newDetail
+        hasNextStep = _currentQuizStep == 0; // Only one more step (newDetail)
+      }
+
+      if (hasNextStep) {
+        setStateIfMounted(() {
+          _currentQuizStep++;
+          _isCompletingStep = false;
+        });
+      } else {
+        debugPrint("QuizManager: Quiz finished successfully.");
+        debugPrint(
+            "QuizManager: Original Session Detail IDs passed: ${widget.completedSessionDetailIds}");
+        debugPrint(
+            "QuizManager: Attempted Test Detail IDs: $_attemptedTestDetailIds");
+        Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) => EndTestScreen(testPassed: true)));
+      }
     } else {
-      setState(() {
-        _currentQuizStep++;
-      });
+      debugPrint(
+          "QuizManager: API complete failed for TEST detail ID $idToMark.");
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('خطأ في حفظ التقدم.')));
+      setStateIfMounted(() => _isCompletingStep = false);
     }
   }
 
-  void _navigateToEndTest() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EndTestScreen(
-          sessionId: widget.sessionId,
-          childSessionId: widget.childSessionId,
-          wrongAnswers: _wrongAnswers,
-        ),
-      ),
-    );
-  }
+  Future<void> _markRelevantDetailsAsNotCompleteOnFailure() async {
+    if (_jwtToken == null) {
+      debugPrint(
+          "QuizManager: Cannot mark details as not complete. Token missing.");
+      return;
+    }
 
-  Widget _buildQuizContent(QuizSession quizSession) {
-    // Special handling for sessions with sessionId > 28
-    if (widget.sessionId > 28) {
-      if (_currentQuizStep == 0) {
-        // First screen: Use details[0] with fixed question
-        final detail = quizSession.details[0].copyWith(
-          question: "هل كان هذا التصرف صح ام خطأ",
-          answer: "صح",
-          rootAnswer: "صح - خطأ",
-        );
-        return QuizType1Screen(
-          detail: detail,
-          onAnswerSelected: _handleAnswer,
-        );
-      } else {
-        // Second screen: Use details[1] with fixed question
-        final detail = quizSession.details[1].copyWith(
-          question: "هل كان هذا التصرف صح ام خطأ",
-          answer: "صح",
-          rootAnswer: "صح - خطأ",
-        );
-        return QuizType1Screen(
-          detail: detail,
-          onAnswerSelected: _handleAnswer,
-        );
+    bool allSessionMarkingSucceeded = true;
+    bool allTestMarkingSucceeded = true;
+
+    if (widget.completedSessionDetailIds.isNotEmpty) {
+      debugPrint(
+          "QuizManager: Marking ORIGINAL session details as NOT complete. IDs: ${widget.completedSessionDetailIds}");
+      for (int sessionDetailId in widget.completedSessionDetailIds) {
+        if (sessionDetailId <= 0) continue;
+        try {
+          bool success = await ApiService.markSessionDetailAsNotComplete(
+              _jwtToken!, sessionDetailId);
+          if (!success) allSessionMarkingSucceeded = false;
+        } catch (e) {
+          debugPrint(
+              "QuizManager: Error marking original session detail ID $sessionDetailId as not complete: $e");
+          allSessionMarkingSucceeded = false;
+        }
       }
     }
 
-    // Original logic for other sessions
-    if (_currentQuizStep == 0) {
-      return QuizType1Screen(
-        detail: quizSession.details[0],
-        onAnswerSelected: _handleAnswer,
-      );
-    } else {
-      return QuizType2Screen(
-        rootQuestion: quizSession.question,
-        option1Detail: quizSession.details[1],
-        option2Detail: quizSession.newDetail!,
-        rootAnswer: quizSession.answer,
-        onAnswerSelected: _handleAnswer,
-      );
+    if (_attemptedTestDetailIds.isNotEmpty) {
+      debugPrint(
+          "QuizManager: Marking ATTEMPTED test details as NOT complete. IDs: $_attemptedTestDetailIds");
+      for (int testDetailId in _attemptedTestDetailIds) {
+        if (testDetailId <= 0) continue;
+        try {
+          bool success = await ApiService.markTestDetailAsNotComplete(
+              _jwtToken!, testDetailId);
+          if (!success) allTestMarkingSucceeded = false;
+        } catch (e) {
+          debugPrint(
+              "QuizManager: Error marking attempted test detail ID $testDetailId as not complete: $e");
+          allTestMarkingSucceeded = false;
+        }
+      }
     }
+
+    if (allSessionMarkingSucceeded && allTestMarkingSucceeded) {
+      debugPrint(
+          "QuizManager: All relevant details (session & test) successfully processed for NotComplete status.");
+    } else {
+      debugPrint(
+          "QuizManager: One or more details failed to be processed for NotComplete status.");
+    }
+  }
+
+  void setStateIfMounted(VoidCallback fn) {
+    if (mounted) setState(fn);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('اختبار'),
-        backgroundColor: Colors.blue,
-      ),
-      body: FutureBuilder<QuizSession>(
-        future: _quizSessionFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'خطأ في تحميل البيانات: ${snapshot.error}',
-                style: TextStyle(color: Colors.red),
-              ),
-            );
-          } else if (snapshot.hasData) {
-            return _buildQuizContent(snapshot.data!);
-          } else {
-            return Center(child: Text('لا توجد بيانات'));
+    return FutureBuilder<QuizSession?>(
+      future: _quizSessionFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const LoadingIndicator(message: 'جاري تحميل الاختبار...');
+        }
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+          String errorMsg = 'فشل تحميل بيانات الاختبار.';
+          if (snapshot.error != null) {
+            if (snapshot.error.toString().contains("Token required"))
+              errorMsg = "خطأ مصادقة.";
+            else if (snapshot.error.toString().contains("Unauthorized")) {
+              errorMsg = "انتهت صلاحية الدخول.";
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted)
+                  Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const LoginView()));
+              });
+            } else
+              errorMsg += '\n(${snapshot.error})';
           }
-        },
-      ),
+          return ErrorDisplay(
+              message: errorMsg, onRetry: _loadTokenAndFetchData);
+        }
+
+        final quizSession = snapshot.data!;
+        _currentQuizSession = quizSession;
+
+        // Check if this is a special session (ID > 28)
+        final bool isSpecialSession = quizSession.sessionId > 28;
+
+        if (isSpecialSession) {
+          // Handle special session with QuizType1Screen for both details
+          if (quizSession.details.length < 2) {
+            return ErrorDisplay(
+                message: 'خطأ: بيانات الاختبار الخاص غير مكتملة.',
+                onRetry: _loadQuizData);
+          }
+          if (_currentQuizStep == 0) {
+            final step1Detail = quizSession.details[0];
+            return QuizType1Screen(
+              key: const ValueKey('quiz_step_0_special'),
+              detail: step1Detail,
+              onAnswerSelected: (bool isCorrect) =>
+                  _completeQuizStep(step1Detail, wasCorrect: isCorrect),
+              isCompleting: _isCompletingStep,
+            );
+          } else if (_currentQuizStep == 1) {
+            final step2Detail = quizSession.details[1];
+            return QuizType1Screen(
+              key: const ValueKey('quiz_step_1_special'),
+              detail: step2Detail,
+              onAnswerSelected: (bool isCorrect) =>
+                  _completeQuizStep(step2Detail, wasCorrect: isCorrect),
+              isCompleting: _isCompletingStep,
+            );
+          } else {
+            // Should not happen if test has only 2 steps
+            return ErrorDisplay(
+                message: "خطأ غير متوقع في خطوات الاختبار الخاص.",
+                onRetry: _loadQuizData);
+          }
+        } else {
+          // Keep existing logic for other sessions
+          if (_currentQuizStep == 0) {
+            if (quizSession.details.isEmpty)
+              return ErrorDisplay(
+                  message: "لا توجد بيانات للخطوة الأولى.",
+                  onRetry: _loadQuizData);
+            final step1Detail = quizSession.details[0];
+            return QuizType1Screen(
+              key: const ValueKey('quiz_step_0'),
+              detail: step1Detail,
+              onAnswerSelected: (bool isCorrect) =>
+                  _completeQuizStep(step1Detail, wasCorrect: isCorrect),
+              isCompleting: _isCompletingStep,
+            );
+          } else {
+            if (quizSession.details.length < 2 ||
+                quizSession.newDetail == null) {
+              return ErrorDisplay(
+                  message: 'خطأ: بيانات الاختبار غير كافية للخطوة الثانية.',
+                  onRetry: _loadQuizData);
+            }
+            final option1 = quizSession.details[1];
+            final option2 = quizSession.newDetail;
+            return QuizType2Screen(
+              key: const ValueKey('quiz_step_1'),
+              rootQuestion: quizSession.question,
+              option1Detail: option1,
+              option2Detail: option2,
+              rootAnswer: quizSession.answer,
+              onAnswerSelected: (QuizDetail chosenDetail, bool isCorrect) =>
+                  _completeQuizStep(chosenDetail, wasCorrect: isCorrect),
+              isCompleting: _isCompletingStep,
+            );
+          }
+        }
+      },
     );
   }
 }
