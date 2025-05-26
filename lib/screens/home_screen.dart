@@ -14,7 +14,7 @@ import 'package:myfinalpro/session/models/session_model.dart';
 import 'package:myfinalpro/emotion/sequential_session_screen.dart'; // افترضت أن هذا موجود
 import 'package:myfinalpro/test3months/test_group_model.dart';
 import 'package:myfinalpro/test3months/group_test_manager_screen.dart';
-
+import 'package:myfinalpro/emotion/training_sessions_screen_v2.dart';
 import 'package:myfinalpro/models/notification_item.dart' as notif_model;
 import 'package:myfinalpro/services/notification_manager.dart';
 
@@ -375,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Padding(padding: EdgeInsets.only(right: 8.0, bottom: 6.0), child: Text('تطوير المهارات وإدارة الانفعالات', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: primaryBlue))),
               _buildProgressCard('الانفعالات', 'تمارين للتعرف على المشاعر وإدارتها بفعالية.',/* emotionProgress*/ primaryBlue, () => Navigator.push(context, MaterialPageRoute(builder: (context) => TrainingSessionsScreen()))),
               const SizedBox(height: 12),
-              _buildProgressCard('تنمية المهارات', 'استكشف تمارين قيمة لتطوير مهاراتك الشخصية والاجتماعية!', primaryBlue, () => Navigator.push(context, MaterialPageRoute(builder: (context) =>  SkillsScreen()))),
+              _buildProgressCard('تنمية المهارات', 'استكشف تمارين قيمة لتطوير مهاراتك الشخصية والاجتماعية!', primaryBlue, () => Navigator.push(context, MaterialPageRoute(builder: (context) =>  TrainingSessionsScreenV2()))),
               const SizedBox(height: 40),
             ],
           ),

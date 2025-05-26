@@ -6,14 +6,13 @@ import 'package:video_player/video_player.dart';
 import 'models/session_model.dart'; // تأكد من المسار الصحيح
 import '../services/Api_services.dart'; // تأكد من المسار الصحيح
 import 'break.dart'; // تأكد من المسار الصحيح
-// import 'timetest.dart'; // إذا كنت ستستخدمها، أو StartTest بدلاً منها
-import 'timetest.dart'; // <-- لاستخدام شاشة StartTest الجديدة
+import 'timetest.dart'; //  لاستخدام شاشة StartTest الجديدة
 import 'dart:math';
 
-class _RandomImageInfo {
+class RandomImageInfo { // جعلته عامًا لتجنب library_private_types_in_public_api إذا كان سيُستخدم بشكل أوسع
   final String path;
   final String name;
-  _RandomImageInfo(this.path, this.name);
+  RandomImageInfo(this.path, this.name);
 }
 
 class SessionDetailsScreen extends StatefulWidget {
@@ -38,9 +37,9 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
   Timer? _breakTimer;
   Timer? _stepTimer;
 
-  _RandomImageInfo? _randomImageInfo;
-  List<_RandomImageInfo> _objectImageInfos = [];
-  List<int> _completedDetailIds = []; // قائمة لتخزين IDs الجلسة المكتملة
+  RandomImageInfo? _randomImageInfo;
+  List<RandomImageInfo> _objectImageInfos = []; // استخدم النوع العام
+  final List<int> _completedDetailIds = []; // تم تعيينه كـ final
 
   VideoPlayerController? _videoController;
   Future<void>? _initializeVideoPlayerFuture;
@@ -58,7 +57,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
   static const Color cardBgColor = Colors.white;
   static const Color cardTextColor = Color(0xFF2C73D9);
   static const Color progressBarColor = Colors.white;
-  static Color progressBarBgColor = Colors.white.withOpacity(0.3);
+  static Color progressBarBgColor = Colors.white.withAlpha((0.3 * 255).round()); // استخدام withAlpha
   static const Color buttonBgColor = Colors.white;
   static const Color buttonFgColor = Color(0xFF2C73D9);
   static const Color loadingIndicatorColor = Colors.white;
@@ -73,10 +72,12 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
     if (_currentSession.details.isEmpty) {
       _errorMessage = "لا توجد تمارين في هذه الجلسة.";
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() {});
+        if (mounted) {
+          setState(() {});
+        }
       });
     } else {
-      print("--- Session Details Screen Initialized ---");
+      debugPrint("--- Session Details Screen Initialized ---");
       _printSessionDetails();
       _loadObjectImageInfos();
       _prepareStepContent();
@@ -89,7 +90,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
     _breakTimer?.cancel();
     _stepTimer?.cancel();
     _videoController?.dispose();
-    print("--- Session Details Screen Disposed ---");
+    debugPrint("--- Session Details Screen Disposed ---");
     super.dispose();
   }
 
@@ -100,18 +101,34 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
   }
 
   void _printSessionDetails() {
-    print("--- Available Exercise Details (from details list) ---");
+    debugPrint("--- Available Exercise Details (from details list) ---");
     for (int i = 0; i < _currentSession.details.length; i++) {
       final detail = _currentSession.details[i];
-      print(
+      debugPrint(
           "Exercise $i: ID=${detail.id}, Type=${detail.datatypeOfContent}, Image=${detail.hasImage}, Text=${detail.hasText}, Video=${detail.hasVideo}, Desc=${detail.hasDesc}");
+      if (detail.hasVideo && detail.video != null) {
+        debugPrint("  Video Path: ${detail.video}");
+      }
     }
     if (_currentSession.newDetail != null) {
-      print(
+      debugPrint(
           "--- New Detail Data: ID=${_currentSession.newDetail!.id}, Type=${_currentSession.newDetail!.datatypeOfContent}, Image=${_currentSession.newDetail!.hasImage}, Text=${_currentSession.newDetail!.hasText}, Video=${_currentSession.newDetail!.hasVideo}, Desc=${_currentSession.newDetail!.hasDesc}");
     }
-    print("------------------------------------------------------");
+    debugPrint("------------------------------------------------------");
   }
+
+  Widget _buildImageErrorWidget(BuildContext context, Object error, StackTrace? stackTrace, String? attemptedPath) {
+     debugPrint("Error loading asset image: $attemptedPath\n$error");
+     return Container(
+       padding: const EdgeInsets.all(10), alignment: Alignment.center,
+       decoration: BoxDecoration( color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade200)),
+       child: Column( mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+           Icon(Icons.broken_image_outlined, color: Colors.red.shade400, size: 40),
+           const SizedBox(height: 8),
+           Text('خطأ تحميل الصورة', textAlign: TextAlign.center, style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.w500)),
+           if (attemptedPath != null) Padding( padding: const EdgeInsets.only(top: 4.0), child: Text( '(المسار: $attemptedPath)', textDirection: TextDirection.ltr, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600, fontSize: 10),),),
+         ],),);
+   }
 
   Future<void> _loadObjectImageInfos() async {
     try {
@@ -120,7 +137,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
       _objectImageInfos = manifestMap.keys
           .where((String key) =>
               key.startsWith(objectsFolderPath) &&
-              key != objectsFolderPath &&
+              key != objectsFolderPath && // Avoid listing the folder itself if it appears
               (key.endsWith('.png') ||
                   key.endsWith('.jpg') ||
                   key.endsWith('.jpeg') ||
@@ -136,15 +153,15 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
           nameWithoutExtension = nameWithoutExtension[0].toUpperCase() +
               nameWithoutExtension.substring(1);
         }
-        return _RandomImageInfo(path, nameWithoutExtension);
+        return RandomImageInfo(path, nameWithoutExtension);
       }).toList();
-      print(
+      debugPrint(
           "Loaded ${_objectImageInfos.length} image infos from $objectsFolderPath");
       if (_objectImageInfos.isEmpty) {
-        print("Warning: No images found in $objectsFolderPath.");
+        debugPrint("Warning: No images found in $objectsFolderPath. Ensure they are declared in pubspec.yaml and the path is correct.");
       }
     } catch (e) {
-      print("Error loading object image infos: $e");
+      debugPrint("Error loading object image infos: $e");
     }
   }
 
@@ -153,56 +170,190 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
       final random = Random();
       _randomImageInfo =
           _objectImageInfos[random.nextInt(_objectImageInfos.length)];
-      print(
+      debugPrint(
           "Selected random object: Path=${_randomImageInfo!.path}, Name=${_randomImageInfo!.name}");
     } else {
-      print("Warning: Cannot select random image, info list is empty.");
+      debugPrint("Warning: Cannot select random image, info list is empty.");
       _randomImageInfo = null;
     }
   }
 
-  void _prepareStepContent() {
-    _videoController?.dispose();
-    _videoController = null;
-    _initializeVideoPlayerFuture = null;
+  bool _isValidUrl(String url) {
+    Uri? uri = Uri.tryParse(url);
+    return uri != null && (uri.isScheme('HTTP') || uri.isScheme('HTTPS'));
+  }
 
-    if (_currentSession.details.isEmpty ||
-        _currentStepIndex >= _currentSession.details.length) return;
+String _normalizeAssetPath(String path) {
+  String cleanPath = path.trim();
+  // هذا السطر هو المفتاح هنا
+  cleanPath = cleanPath.replaceAll('\\', '/'); 
 
-    final currentDetail = _currentSession.details[_currentStepIndex];
+  if (!cleanPath.startsWith('assets/')) {
+    if (cleanPath.startsWith('/')) {
+        cleanPath = cleanPath.substring(1);
+    }
+    cleanPath = 'assets/$cleanPath';
+  }
+  cleanPath = cleanPath.replaceAll(RegExp(r'/+'), '/');
+  debugPrint("Original path: '$path' -> Normalized path: '$cleanPath'");
+  return cleanPath;
+}
+// This function seems to be unused in the provided video loading logic,
+// as _createVideoController is directly using VideoPlayerController.asset or .networkUrl.
+// If it were used, it's mostly for network URLs.
+// VideoPlayerController? _createVideoController(String videoPath) {
+//   String normalizedPath = _normalizeAssetPath(videoPath);
+//   debugPrint("Attempting to create video controller for: '$normalizedPath'");
+//   if (_isValidUrl(normalizedPath)) { // This check is for absolute URLs
+//     debugPrint("Creating network video controller for URL: $normalizedPath");
+//     Uri videoUri = Uri.parse(normalizedPath);
+//     return VideoPlayerController.networkUrl(videoUri);
+//   }
+//   debugPrint("Creating asset video controller for: $normalizedPath");
+//   return VideoPlayerController.asset(normalizedPath);
+// }
 
-    if (currentDetail.hasVideo && currentDetail.video != null) {
-      Uri? videoUri = Uri.tryParse(currentDetail.video!);
-      if (videoUri != null &&
-          (videoUri.isScheme('HTTP') || videoUri.isScheme('HTTPS'))) {
-        _videoController = VideoPlayerController.networkUrl(videoUri);
-      } else if (currentDetail.video!.startsWith('assets/')) {
-        print("Attempting to load video from asset: ${currentDetail.video!}");
-        _videoController = VideoPlayerController.asset(currentDetail.video!);
+// This function is also not directly used for path validation before passing to VideoPlayerController.asset.
+// _checkVideoAssetExists is used instead.
+// bool _isValidAssetPath(String path) {
+//   String normalizedPath = _normalizeAssetPath(path);
+//   return normalizedPath.startsWith('assets/') &&
+//          (normalizedPath.endsWith('.mp4') || normalizedPath.endsWith('.mov') ||
+//           normalizedPath.endsWith('.avi') || normalizedPath.endsWith('.mkv') ||
+//           normalizedPath.endsWith('.webm') || normalizedPath.endsWith('.3gp'));
+// }
+
+Future<bool> _checkVideoAssetExists(String assetPath) async {
+  // Asset paths should be relative to the project root, e.g., "assets/videos/my_video.mp4"
+  // The _normalizeAssetPath function ensures it starts with "assets/".
+  try {
+    // Attempt to load the asset. If it doesn't exist, this will throw an exception.
+    await rootBundle.load(assetPath);
+    debugPrint("Asset check: Found '$assetPath'");
+    return true;
+  } catch (e) {
+    debugPrint("Asset check: Not found '$assetPath' - Error: $e");
+    return false;
+  }
+}
+
+Future<String?> _findValidVideoPath(String originalPath) async {
+  // Normalize the original path first. This handles trims, backslashes, and 'assets/' prefix.
+  String normalizedOriginalPath = _normalizeAssetPath(originalPath);
+
+  List<String> pathsToTry = [
+    normalizedOriginalPath, // Try the normalized path directly
+  ];
+
+  // If the original path didn't start with 'assets/', _normalizeAssetPath added it.
+  // If originalPath was like 'videos/myvideo.mp4', normalizedOriginalPath is 'assets/videos/myvideo.mp4'.
+  // If originalPath was 'assets/videos/myvideo.mp4', normalizedOriginalPath is the same.
+
+  // Add variations with common video extensions if the original path might be missing one.
+  // This is useful if `originalPath` might be just "assets/videos/myvideo"
+  String basePathWithoutExtension = normalizedOriginalPath;
+  if (normalizedOriginalPath.contains('.')) {
+      int lastDot = normalizedOriginalPath.lastIndexOf('.');
+      String extension = normalizedOriginalPath.substring(lastDot);
+      // Check if it's a common video extension; if not, it might be part of the name.
+      if (!['.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp'].contains(extension.toLowerCase())) {
+          // It's not a common video extension, so don't strip it, or it's part of the name.
+          // Or, we assume the original extension is what we want to try first.
       } else {
-        print(
-            "Unsupported video URI scheme or invalid local path: ${currentDetail.video}");
-        _errorMessage = "مسار الفيديو غير صالح: ${currentDetail.video}";
-        return;
+         basePathWithoutExtension = normalizedOriginalPath.substring(0, lastDot);
       }
+  }
+  // If basePathWithoutExtension is different from normalizedOriginalPath OR if normalizedOriginalPath had no extension
+  if (basePathWithoutExtension != normalizedOriginalPath || !normalizedOriginalPath.contains('.')){
+      pathsToTry.addAll([
+        '$basePathWithoutExtension.mp4',
+        '$basePathWithoutExtension.mov',
+        '$basePathWithoutExtension.avi',
+        '$basePathWithoutExtension.mkv',
+        '$basePathWithoutExtension.webm',
+        '$basePathWithoutExtension.3gp',
+      ]);
+  }
 
-      _initializeVideoPlayerFuture = _videoController!.initialize().then((_) {
-        if (mounted) {
-          setStateIfMounted(() {});
-          _videoController!.play();
-          _videoController!.setLooping(true);
+
+  // Remove duplicates that might have arisen
+  pathsToTry = pathsToTry.toSet().toList();
+  
+  debugPrint("Trying video paths for '$originalPath': $pathsToTry");
+  
+  for (String path in pathsToTry) {
+    if (await _checkVideoAssetExists(path)) {
+      debugPrint("Found valid video asset path: '$path'");
+      return path;
+    }
+  }
+  
+  debugPrint("No valid video asset path found for: '$originalPath'");
+  return null;
+}
+
+void _prepareStepContent() async {
+  _videoController?.dispose();
+  _videoController = null;
+  _initializeVideoPlayerFuture = null;
+  _errorMessage = null; // مسح أي رسالة خطأ سابقة
+
+  // --- بداية كود الاختبار بمسار ثابت ---
+  String testVideoAssetPath = "assets/testvid/1.mp4"; // المسار داخل مجلد assets
+  debugPrint("--- ATTEMPTING TO PLAY TEST VIDEO: $testVideoAssetPath ---");
+  // --- نهاية كود الاختبار بمسار ثابت ---
+
+  // لا نحتاج إلى _findValidVideoPath هنا لأننا نستخدم مسارًا ثابتًا ومباشرًا.
+  // يتم استخدام _normalizeAssetPath للتأكد من إضافة "assets/" إذا لم تكن موجودة.
+  String fullTestAssetPath = _normalizeAssetPath(testVideoAssetPath); 
+
+  // التحقق مما إذا كان ملف الاختبار موجودًا بالفعل باستخدام الدالة التي لديك
+  bool testAssetExists = await _checkVideoAssetExists(fullTestAssetPath);
+
+  if (testAssetExists) {
+    debugPrint("Test video asset '$fullTestAssetPath' found by _checkVideoAssetExists. Proceeding to initialize.");
+    _videoController = VideoPlayerController.asset(fullTestAssetPath);
+
+    _initializeVideoPlayerFuture = _videoController!.initialize().then((_) {
+      debugPrint("TEST VIDEO controller initialized successfully for: $fullTestAssetPath");
+      if (mounted) {
+        setStateIfMounted(() {
+          _errorMessage = null;
+        });
+        _videoController!.play();
+        _videoController!.setLooping(true);
+      }
+    }).catchError((error) {
+      debugPrint("Error initializing TEST VIDEO player: $error for video: $fullTestAssetPath");
+      if (mounted) {
+        String errorMsg = "خطأ في تحميل فيديو الاختبار: $fullTestAssetPath";
+        if (error.toString().toLowerCase().contains('source error') || error.toString().toLowerCase().contains('exoplaybackexception')) {
+          errorMsg = "تنسيق فيديو الاختبار غير مدعوم أو الملف تالف: ${fullTestAssetPath.split('/').last}";
+        } else if (error.toString().toLowerCase().contains('filenotfoundexception')) {
+          errorMsg = "ملف فيديو الاختبار غير موجود بالحزمة: ${fullTestAssetPath.split('/').last}";
         }
-      }).catchError((error) {
-        print(
-            "Error initializing video player: $error for video: ${currentDetail.video}");
-        if (mounted) {
-          setStateIfMounted(() =>
-              _errorMessage = "خطأ في تحميل الفيديو: ${currentDetail.video}");
-        }
+        setStateIfMounted(() => _errorMessage = errorMsg);
+      }
+    });
+  } else {
+    // إذا لم يتم العثور على ملف الاختبار بواسطة _checkVideoAssetExists
+    debugPrint("TEST VIDEO asset '$fullTestAssetPath' NOT FOUND by _checkVideoAssetExists. Ensure it's in pubspec.yaml and the path is correct.");
+    if (mounted) {
+      setStateIfMounted(() {
+        _errorMessage = "ملف فيديو الاختبار '$testVideoAssetPath' غير موجود. تأكد من إضافته للمشروع وتحديث pubspec.yaml.";
       });
     }
   }
 
+  // إذا لم يتم تشغيل فيديو الاختبار لأي سبب، تأكد من أن واجهة المستخدم تعكس ذلك
+  // أو يمكنك إضافة منطق للعودة إلى الفيديو الأصلي إذا فشل الاختبار.
+  // حاليًا، إذا فشل الاختبار، ستبقى رسالة الخطأ الخاصة بالاختبار.
+
+  // استدعاء setState لضمان تحديث واجهة المستخدم (مهم إذا كان _buildVideoDisplay يعتمد على _errorMessage)
+  if (mounted) {
+    setStateIfMounted(() {});
+  }
+}
   void _startStepTimer() {
     _stepTimer?.cancel();
     if (_currentSession.details.isEmpty ||
@@ -219,19 +370,19 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
       currentStepDuration = videoDisplayDuration;
     } else if (currentDetail.hasImage) {
       currentStepDuration = imageDisplayDuration;
-    } else {
+    } else { // Assumed to be text if not image or video
       currentStepDuration = textDisplayDuration;
     }
 
-    print(
-        "Starting step timer for Step Index: $_currentStepIndex (ID: ${currentDetail.id}) - Duration: ${currentStepDuration.inSeconds} sec");
+    debugPrint(
+        "Starting step timer for Step Index: $_currentStepIndex (ID: ${currentDetail.id}) - Type: ${currentDetail.datatypeOfContent} - Duration: ${currentStepDuration.inSeconds} sec");
 
     if (isLastStep) {
-      _selectRandomObjectImageInfo();
+      _selectRandomObjectImageInfo(); // Selects info, used when building last step content
     }
 
     _stepTimer = Timer(currentStepDuration, () {
-      print("Step Timer Finished for Step Index: $_currentStepIndex.");
+      debugPrint("Step Timer Finished for Step Index: $_currentStepIndex.");
       if (mounted) {
         _goToNextStep();
       }
@@ -239,29 +390,38 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
   }
 
   Future<bool> _completeDetailApiCall(int detailId) async {
-    _completedDetailIds.add(detailId); // إضافة ID الجلسة المكتمل
-    print(
+    if (!_completedDetailIds.contains(detailId)) { 
+        _completedDetailIds.add(detailId);
+    }
+    debugPrint(
         "Added detail ID $detailId to session completed list. Current list: $_completedDetailIds");
 
     setStateIfMounted(() {
       _isLoading = true;
-      _errorMessage = null;
+      _errorMessage = null; // Clear general error message before API call
     });
     try {
-      print("Attempting to complete session detail ID: $detailId");
+      debugPrint("Attempting to complete session detail ID: $detailId");
       bool success = await ApiService.completeDetail(widget.jwtToken, detailId);
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
       if (success) {
-        print("Successfully completed session detail ID: $detailId");
+        debugPrint("Successfully completed session detail ID: $detailId");
       } else {
-        print("Failed to complete session detail ID: $detailId via API.");
-        setStateIfMounted(() => _errorMessage = "فشل حفظ التقدم.");
+        debugPrint("Failed to complete session detail ID: $detailId via API.");
+        // Don't overwrite a video-specific error message if one exists.
+        if (_errorMessage == null || !_errorMessage!.contains("الفيديو")) {
+          setStateIfMounted(() => _errorMessage = "فشل حفظ التقدم.");
+        }
       }
       return success;
     } catch (e) {
-      print("Error completing session detail $detailId: $e");
+      debugPrint("Error completing session detail $detailId: $e");
       if (mounted) {
-        setStateIfMounted(() => _errorMessage = "خطأ في الاتصال بالخادم.");
+         if (_errorMessage == null || !_errorMessage!.contains("الفيديو")) {
+            setStateIfMounted(() => _errorMessage = "خطأ في الاتصال بالخادم.");
+         }
       }
       return false;
     } finally {
@@ -272,70 +432,90 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
   }
 
   Future<void> _goToNextStep() async {
-    if (_isLoading || _currentSession.details.isEmpty) return;
-    if (_currentStepIndex >= _currentSession.details.length) return;
+    if (_isLoading || _currentSession.details.isEmpty) {
+      return;
+    }
+    // This check might be redundant if _currentStepIndex is always managed, but safe
+    if (_currentStepIndex >= _currentSession.details.length) { 
+      debugPrint("Attempted to go to next step, but already past the end or no details.");
+      // Potentially navigate to end screen or handle as session completion
+      if (mounted && _currentSession.details.isNotEmpty) { // Ensure there were details to begin with
+          _navigateToTestScreen();
+      }
+      return;
+    }
 
     _stepTimer?.cancel();
     _stepTimer = null;
-    _videoController?.pause();
+    _videoController?.pause(); // Pause video before API call and break
 
     final currentDetailId = _currentSession.details[_currentStepIndex].id;
     bool success = await _completeDetailApiCall(currentDetailId);
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     if (success) {
       final nextIndex = _currentStepIndex + 1;
       final bool isSessionFinished =
           nextIndex >= _currentSession.details.length;
 
-      print(
+      debugPrint(
           "API call for session detail $currentDetailId successful. Starting break.");
       await _startBreakAndWait();
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       if (isSessionFinished) {
-        print(
-            "All session exercises completed! Navigating to StartTest screen.");
-        print(
-            "Final list of completed session detail IDs to pass: $_completedDetailIds");
-        Navigator.pop(context, true); // إغلاق الشاشة الحالية
-
-        // --- الانتقال إلى StartTest مع تمرير القائمة ---
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => StartTest(
-              previousSessionDetailIds: _completedDetailIds, // تمرير القائمة
-            ),
-          ),
-        );
-        // --- نهاية الانتقال ---
+        _navigateToTestScreen();
       } else {
-        print("Break finished. Moving to session exercise index $nextIndex.");
+        debugPrint("Break finished. Moving to session exercise index $nextIndex.");
         setStateIfMounted(() {
           _currentStepIndex = nextIndex;
-          _errorMessage = null;
+          _errorMessage = null; // Clear error from previous step
         });
-        _prepareStepContent();
-        _startStepTimer();
+        _prepareStepContent(); // Prepare content for the new step
+        _startStepTimer();     // Start timer for the new step
       }
     } else {
-      print(
-          "API call for session detail $currentDetailId failed. Staying on current step.");
-      if (mounted) {
+      debugPrint(
+          "API call for session detail $currentDetailId failed. Staying on current step. Error: $_errorMessage");
+      // Error message should have been set by _completeDetailApiCall or _prepareStepContent
+      // Optionally, restart timer for current step or allow user to retry "Next"
+       _startStepTimer(); // Restart timer for current step if API fails, allowing user to see content longer.
+      if (mounted && (_errorMessage != null && _errorMessage!.isNotEmpty)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_errorMessage ?? 'فشل حفظ التقدم.'),
+            content: Text(_errorMessage!),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
   }
+  
+  void _navigateToTestScreen() {
+    debugPrint(
+        "All session exercises completed or end of session reached! Navigating to StartTest screen.");
+    debugPrint(
+        "Final list of completed session detail IDs to pass: $_completedDetailIds");
+    if (mounted) { 
+        Navigator.pop(context, true); 
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => StartTest(
+              previousSessionDetailIds: List<int>.from(_completedDetailIds),
+            ),
+          ),
+        );
+    }
+  }
 
   Future<void> _startBreakAndWait() async {
-    print("Navigating to BreakScreen for $breakDuration...");
+    debugPrint("Navigating to BreakScreen for $breakDuration...");
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -343,21 +523,29 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
         fullscreenDialog: true,
       ),
     );
-    print("Returned from BreakScreen.");
+    debugPrint("Returned from BreakScreen.");
   }
 
   Widget _buildStepContent() {
     if (_currentStepIndex >= _currentSession.details.length) {
-      return _buildGenericErrorWidget("خطأ في عرض التمرين.");
+       // This case should ideally be handled by _goToNextStep navigating away
+       // or by the main build method showing a completion/error state.
+      return _buildGenericErrorWidget("اكتملت التمارين أو لا يمكن عرض التمرين الحالي.");
     }
 
     final currentDetail = _currentSession.details[_currentStepIndex];
     final int totalSteps = _currentSession.details.length;
     final bool isLastStep = _currentStepIndex == totalSteps - 1;
-    final bool isSecondToLastStep = _currentStepIndex == totalSteps - 2;
+    final bool isSecondToLastStep = (totalSteps > 1) && (_currentStepIndex == totalSteps - 2) ;
 
-    print(
-        "--- Building Content for Step Index: $_currentStepIndex (ID: ${currentDetail.id}) ---");
+
+    debugPrint(
+        "--- Building Content for Step Index: $_currentStepIndex (ID: ${currentDetail.id}), Type: ${currentDetail.datatypeOfContent} ---");
+    debugPrint(
+        "  Detail: Image=${currentDetail.hasImage}, Text=${currentDetail.hasText}, Video=${currentDetail.hasVideo}, Desc=${currentDetail.hasDesc}");
+    if (currentDetail.hasImage) debugPrint("  Image Path: ${currentDetail.image}");
+    if (currentDetail.hasVideo) debugPrint("  Video Path: ${currentDetail.video}");
+
 
     bool displayDoubleImage = false;
     String? imagePath1;
@@ -368,39 +556,33 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
     String? desc2;
     String? randomImageCaption;
 
-    // Check if typeId is 2 to determine whether to show additional content
-    bool showAdditionalContent = _currentSession.typeId != 2;
+    // typeId == 2 is 'listening and imitation' according to previous context
+    // This logic implies that for typeId 2, we don't show the 'newDetail' or 'randomImage'
+    bool showAdditionalContentForNonTypeId2 = _currentSession.typeId != 2; 
 
-    if (showAdditionalContent) {
+    if (showAdditionalContentForNonTypeId2) {
       if (isSecondToLastStep &&
-          currentDetail.hasImage &&
-          _currentSession.newDetail?.hasImage == true) {
+          currentDetail.hasImage && currentDetail.image != null &&
+          _currentSession.newDetail?.hasImage == true && _currentSession.newDetail?.image != null ) {
         displayDoubleImage = true;
         imagePath1 = localImagePathBase + currentDetail.image!;
         imagePath2 = localImagePathBase + _currentSession.newDetail!.image!;
         text2 = _currentSession.newDetail!.text;
         desc2 = _currentSession.newDetail!.desc;
+        debugPrint("Displaying double image: current + newDetail");
       } else if (isLastStep &&
-          currentDetail.hasImage &&
-          _randomImageInfo != null) {
+          currentDetail.hasImage && currentDetail.image != null &&
+          _randomImageInfo != null && _randomImageInfo!.path.isNotEmpty ) {
         displayDoubleImage = true;
         imagePath1 = localImagePathBase + currentDetail.image!;
-        imagePath2 = _randomImageInfo!.path;
+        imagePath2 = _randomImageInfo!.path; // This path is already full, like 'assets/objects/...'
         randomImageCaption = _randomImageInfo!.name;
+        debugPrint("Displaying double image: current + random image '${_randomImageInfo!.name}'");
       }
     }
 
     return Column(
       children: [
-        // Progress bar
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: LinearProgressIndicator(
-            value: (_currentStepIndex + 1) / totalSteps,
-            backgroundColor: progressBarBgColor,
-            valueColor: const AlwaysStoppedAnimation<Color>(progressBarColor),
-          ),
-        ),
         Expanded(
           child: SingleChildScrollView(
             child: Padding(
@@ -408,11 +590,11 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (currentDetail.hasImage) ...[
-                    if (displayDoubleImage) ...[
+                  if (currentDetail.hasImage && currentDetail.image != null && currentDetail.image!.isNotEmpty) ...[
+                    if (displayDoubleImage && imagePath1 != null && imagePath2 != null) ...[
                       _buildDoubleImageDisplay(
-                        imagePath1!,
-                        imagePath2!,
+                        imagePath1, 
+                        imagePath2, 
                         text1,
                         text2,
                         desc1,
@@ -421,16 +603,35 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                       ),
                     ] else ...[
                       _buildSingleImageDisplay(
-                        localImagePathBase + currentDetail.image!,
+                        localImagePathBase + currentDetail.image!, 
                         text1,
-                        showAdditionalContent ? desc1 : null,
+                        // Only show description for typeId != 2 if showAdditionalContentForNonTypeId2 is true,
+                        // or always show if it's not typeId 2. The logic seems to be:
+                        // desc1 is shown if it exists and it's not type 2, or if it's type 2 and showAdditionalContentForNonTypeId2 is false (which means it is type 2)
+                        // This simplifies to: show desc1 if it exists. The typeId check might be for something else.
+                        // The current code has `showAdditionalContent ? desc1 : null`. This means desc1 is only shown if typeId != 2.
+                        // Let's stick to the original logic:
+                        showAdditionalContentForNonTypeId2 ? desc1 : null,
                       ),
                     ],
-                  ] else if (currentDetail.hasVideo) ...[
+                  ] else if (currentDetail.hasVideo && currentDetail.video != null && currentDetail.video!.isNotEmpty) ...[
                     _buildVideoDisplay(currentDetail.video!),
-                  ] else if (currentDetail.hasText) ...[
-                    _buildTextDisplay(text1!),
-                  ],
+                  ] else if (currentDetail.hasText && currentDetail.text != null && currentDetail.text!.isNotEmpty) ...[
+                    _buildTextDisplay(currentDetail.text!),
+                  ]
+                  else if (!currentDetail.hasImage && !currentDetail.hasVideo && !currentDetail.hasText && _errorMessage == null) ...[
+                     // If there's an _errorMessage (e.g. video failed to load), that will be shown by the main build method.
+                     // This widget is for when there's genuinely no content defined for the step.
+                     _buildGenericErrorWidget("لا يوجد محتوى لهذا التمرين."),
+                  ] else if (_errorMessage != null && _errorMessage!.contains("الفيديو")) ... [
+                    // This is a special case where _buildVideoDisplay will show its own error/loading state,
+                    // but if _errorMessage is set from _prepareStepContent because validVideoPath was null,
+                    // _buildVideoDisplay might not be called. So, show error here too.
+                    // However, _buildVideoDisplay IS called, and it will show the error.
+                    // This part could be removed if _buildVideoDisplay robustly shows errors.
+                    // For now, let _buildVideoDisplay handle its own errors.
+                    // The main build method will show _errorMessage if it's not related to video UI itself.
+                  ]
                 ],
               ),
             ),
@@ -442,46 +643,75 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
 
   Widget _buildSingleImageDisplay(
       String imagePath, String? text, String? desc) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Image.asset(
-          imagePath,
-          fit: BoxFit.contain,
-          height: 300,
-        ),
-        if (text != null && text.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: 18,
-              color: cardTextColor,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-        if (desc != null && desc.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            desc,
-            style: const TextStyle(
-              fontSize: 16,
-              color: cardTextColor,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildVideoDisplay(String videoPath) {
+    debugPrint("Building single image display for: $imagePath");
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
       elevation: 6,
-      shadowColor: Colors.black.withOpacity(0.15),
+      shadowColor: Colors.black.withAlpha((0.15 * 255).round()),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      color: cardBgColor,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, (text != null && text.isNotEmpty || desc != null && desc.isNotEmpty) ? 8 : 12),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12.0),
+              child: Image.asset(
+                _normalizeAssetPath(imagePath), // Normalize just in case
+                fit: BoxFit.contain,
+                height: 300, 
+                errorBuilder: (context, error, stackTrace) => 
+                  _buildImageErrorWidget(context, error, stackTrace, imagePath),
+              ),
+            ),
+          ),
+          if (text != null && text.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(bottom: (desc != null && desc.isNotEmpty) ? 4.0 : 12.0, left: 16.0, right: 16.0),
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: cardTextColor,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'cairo',
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          if (desc != null && desc.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12.0, left: 16.0, right: 16.0, top: 2.0),
+              child: Text(
+                desc,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: cardTextColor.withAlpha((0.9 * 255).round()), 
+                  fontFamily: 'cairo',
+                  height: 1.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoDisplay(String videoPathOriginalData) {
+    // Note: videoPathOriginalData is from currentDetail.video
+    // _initializeVideoPlayerFuture and _videoController are set up in _prepareStepContent
+    // using the resolved path from _findValidVideoPath.
+    debugPrint("Building video display. Controller initialized: ${_videoController?.value.isInitialized}, Error: $_errorMessage");
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+      elevation: 6,
+      shadowColor: Colors.black.withAlpha((0.15 * 255).round()),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       clipBehavior: Clip.antiAlias,
       color: cardBgColor,
@@ -496,22 +726,9 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
               child: FutureBuilder(
                 future: _initializeVideoPlayerFuture,
                 builder: (context, snapshot) {
-                  if (_videoController == null ||
-                      !_videoController!.value.isInitialized &&
-                          snapshot.connectionState != ConnectionState.done) {
-                    String displayMessage = "جاري تحميل الفيديو...";
-                    IconData displayIcon = Icons.videocam_off_outlined;
-                    if (_errorMessage != null &&
-                        _errorMessage!.contains("الفيديو")) {
-                      displayMessage = _errorMessage!;
-                      displayIcon = Icons.error_outline;
-                    } else if (snapshot.connectionState ==
-                            ConnectionState.done &&
-                        (_videoController == null ||
-                            !_videoController!.value.isInitialized)) {
-                      displayMessage = "لا يمكن تشغيل الفيديو.";
-                      displayIcon = Icons.error_outline;
-                    }
+                  // Case 1: Video controller could not be created at all (e.g., validVideoPath was null, _prepareStepContent set _errorMessage)
+                  // or if _videoController is null for any other reason.
+                  if (_videoController == null) {
                     return AspectRatio(
                       aspectRatio: 16 / 9,
                       child: Container(
@@ -520,27 +737,76 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(displayIcon, color: Colors.white, size: 48),
+                              const Icon(Icons.error_outline, color: Colors.white, size: 48),
                               const SizedBox(height: 8),
                               Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0),
-                                  child: Text(displayMessage,
-                                      style: TextStyle(color: Colors.white),
-                                      textAlign: TextAlign.center)),
-                              if (snapshot.connectionState !=
-                                      ConnectionState.done &&
-                                  _videoController != null)
-                                Padding(
-                                    padding: const EdgeInsets.only(top: 10.0),
-                                    child: CircularProgressIndicator(
-                                        color: loadingIndicatorColor)),
+                                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                child: Text(
+                                  _errorMessage ?? "فشل في تهيئة مشغل الفيديو.", // Show specific error if available
+                                  style: const TextStyle(color: Colors.white),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       ),
                     );
                   }
+
+                  // Case 2: Video controller exists, but initialization is in progress
+                  if (snapshot.connectionState == ConnectionState.waiting || !_videoController!.value.isInitialized && snapshot.connectionState != ConnectionState.done) {
+                     return AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Container(
+                        color: videoPlaceholderColor,
+                        child: const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(color: loadingIndicatorColor),
+                              SizedBox(height: 8),
+                              Text("جاري تحميل الفيديو...",
+                                  style: TextStyle(color: Colors.white),
+                                  textAlign: TextAlign.center),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Case 3: Initialization finished, but failed (e.g., ExoPlayer source error)
+                  // _errorMessage should be set by _prepareStepContent's catchError
+                  if (snapshot.hasError || !_videoController!.value.isInitialized) {
+                    String errorToShow = _errorMessage ?? "لا يمكن تشغيل الفيديو.";
+                    if(snapshot.hasError) {
+                       debugPrint("FutureBuilder snapshot error for video: ${snapshot.error}");
+                       // errorToShow might be refined here based on snapshot.error if _errorMessage isn't specific enough
+                    }
+                     return AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Container(
+                        color: videoPlaceholderColor,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.white, size: 48),
+                              const SizedBox(height: 8),
+                              Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                  child: Text(errorToShow,
+                                      style: const TextStyle(color: Colors.white),
+                                      textAlign: TextAlign.center)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  
+                  // Case 4: Successfully initialized
                   if (_videoController!.value.isInitialized) {
                     return AspectRatio(
                       aspectRatio: _videoController!.value.aspectRatio,
@@ -550,23 +816,26 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                           VideoPlayer(_videoController!),
                           _ControlsOverlay(
                               controller: _videoController!,
-                              key: ValueKey(_videoController!.textureId)),
+                              // Using a ValueKey ensures the overlay rebuilds if the controller instance changes
+                              key: ValueKey(_videoController.hashCode)), 
                         ],
                       ),
                     );
                   }
-                  return AspectRatio(
+                  
+                  // Fallback: Should not be reached if logic above is complete
+                  return const AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: Container(
-                          color: videoPlaceholderColor,
-                          child: const Center(
+                      child: DecoratedBox(
+                          decoration: BoxDecoration(color: videoPlaceholderColor),
+                          child: Center(
                               child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                Icon(Icons.error_outline,
+                                Icon(Icons.hourglass_empty,
                                     color: Colors.white, size: 48),
                                 SizedBox(height: 8),
-                                Text("خطأ غير متوقع في الفيديو",
+                                Text("حالة غير معروفة للفيديو",
                                     style: TextStyle(color: Colors.white))
                               ]))));
                 },
@@ -582,7 +851,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
       elevation: 6,
-      shadowColor: Colors.black.withOpacity(0.15),
+      shadowColor: Colors.black.withAlpha((0.15 * 255).round()),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       clipBehavior: Clip.antiAlias,
       color: cardBgColor,
@@ -609,7 +878,10 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
       String? desc2,
       String? randomImageCaption) {
     bool isSecondImageRandom =
-        randomImageCaption != null && imagePath2 == _randomImageInfo?.path;
+        randomImageCaption != null && _randomImageInfo != null && imagePath2 == _randomImageInfo!.path;
+    
+    debugPrint("Building double image display. Image1: $imagePath1, Image2: $imagePath2 (Random: $isSecondImageRandom)");
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -635,10 +907,11 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                         : 12),
                 child: ClipRRect(
                     borderRadius: BorderRadius.circular(8.0),
-                    child: Image.asset(imagePath1,
+                    child: Image.asset(_normalizeAssetPath(imagePath1), // Normalize just in case
                         fit: BoxFit.contain,
+                        height: 200, 
                         errorBuilder: (ctx, e, s) =>
-                            _buildImageErrorWidget(imagePath1))),
+                            _buildImageErrorWidget(ctx, e, s, imagePath1))),
               ),
               if (text1 != null && text1.isNotEmpty)
                 Padding(
@@ -662,7 +935,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 15,
-                          color: cardTextColor.withOpacity(0.85),
+                          color: cardTextColor.withAlpha((0.85 * 255).round()), 
                           fontFamily: 'cairo',
                           fontWeight: FontWeight.normal,
                           height: 1.2)),
@@ -694,9 +967,11 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                         : 12),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8.0),
-                  child: Image.asset(imagePath2,
+                  child: Image.asset(_normalizeAssetPath(imagePath2), // Normalize just in case
                       fit: BoxFit.contain,
-                      errorBuilder: (ctx, e, s) => _buildImageErrorWidget(
+                      height: 200, 
+                      errorBuilder: (ctx, e, s) => _buildImageErrorWidget( 
+                          ctx, e, s,
                           isSecondImageRandom
                               ? "صورة عشوائية ($imagePath2)"
                               : imagePath2)),
@@ -730,7 +1005,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 15,
-                          color: cardTextColor.withOpacity(0.85),
+                          color: cardTextColor.withAlpha((0.85 * 255).round()),
                           fontFamily: 'cairo',
                           fontWeight: FontWeight.normal,
                           height: 1.2)),
@@ -743,7 +1018,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 16,
-                          color: cardTextColor.withOpacity(0.9),
+                          color: cardTextColor.withAlpha((0.9 * 255).round()),
                           fontFamily: 'cairo',
                           fontWeight: FontWeight.w500,
                           height: 1.3)),
@@ -752,30 +1027,6 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildImageErrorWidget(String? attemptedPath) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 15),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.red.shade100)),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.broken_image_outlined,
-            size: 40, color: Colors.redAccent),
-        const SizedBox(height: 10),
-        const Text('خطأ في تحميل الصورة',
-            style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 15, color: Colors.red)),
-        const SizedBox(height: 6),
-        Text('(المسار: ${attemptedPath ?? "غير متوفر"})',
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.black54, fontSize: 10)),
-      ]),
     );
   }
 
@@ -805,26 +1056,36 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     Widget bodyContent;
+    // isVideoLoading is true if a video is actively being initialized by the FutureBuilder
     bool isVideoLoading = _videoController != null &&
-        !_videoController!.value.isInitialized &&
-        _initializeVideoPlayerFuture != null &&
-        ModalRoute.of(context)?.isCurrent == true;
+        _initializeVideoPlayerFuture != null && // Ensure future exists
+        ModalRoute.of(context)?.isCurrent == true && // Only consider loading if this screen is current
+        // Check snapshot state if possible, but FutureBuilder handles this.
+        // More directly, check if controller is not yet initialized but we expect it to be.
+        !_videoController!.value.isInitialized;
 
-    if ((_isLoading && !isVideoLoading) ||
-        (_isLoading && _videoController == null)) {
+
+    if ((_isLoading && !isVideoLoading) || (_isLoading && _videoController == null)) {
+       // Show general loading indicator if _isLoading is true,
+       // UNLESS it's specifically for video loading which FutureBuilder handles.
+       // If _videoController is null, then it's not video loading, so general loader is fine.
       bodyContent = const Center(
           child: CircularProgressIndicator(color: loadingIndicatorColor));
     } else if (_errorMessage != null && _currentSession.details.isEmpty) {
+      // Error message when there are no details at all (e.g., initial load failed)
       bodyContent = Center(child: _buildGenericErrorWidget(_errorMessage!));
     } else if (_currentSession.details.isEmpty) {
+      // No details, and no specific error message (e.g. session legitimately empty)
       bodyContent = Center(
           child: _buildGenericErrorWidget(
               "لا توجد تمارين متاحة في هذه الجلسة حاليًا."));
     } else if (_currentStepIndex >= _currentSession.details.length) {
+      // Should have navigated away, but as a fallback:
       bodyContent = Center(
           child: _buildGenericErrorWidget(
-              "اكتملت التمارين أو حدث خطأ غير متوقع."));
+              "اكتملت التمارين أو حدث خطأ غير متوقع في تدفق الجلسة."));
     } else {
+      // Normal content display
       bodyContent = Column(
         children: [
           if (_currentSession.details.length > 1)
@@ -842,54 +1103,60 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
               ),
             ),
           Expanded(child: _buildStepContent()),
-          _errorMessage != null &&
-                  _errorMessage!.contains('فشل حفظ التقدم') &&
-                  !(_errorMessage!.contains("الفيديو"))
-              ? Padding(
+          // Display error messages that are not handled within _buildStepContent (e.g. API errors)
+          // Video errors are typically shown within _buildVideoDisplay.
+          if (_errorMessage != null && 
+              !_errorMessage!.contains("الفيديو") && // Don't show if it's a video error handled by _buildVideoDisplay
+              !_errorMessage!.contains("ملف الفيديو") // Also for specific video file not found message
+              ) 
+              Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Text(_errorMessage!,
                       style: const TextStyle(
                           color: errorTextColor, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center))
-              : Padding(
-                  padding: const EdgeInsets.fromLTRB(20.0, 10.0, 20.0, 25.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: (_isLoading || isVideoLoading)
-                          ? null
-                          : () {
-                              print("Next button pressed.");
-                              _stepTimer?.cancel();
-                              _goToNextStep();
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: buttonBgColor,
-                        foregroundColor: buttonFgColor,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        textStyle: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'cairo'),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30.0)),
-                        elevation: 4,
-                        shadowColor: Colors.black.withOpacity(0.2),
-                        disabledBackgroundColor: buttonBgColor.withOpacity(0.7),
-                        disabledForegroundColor: buttonFgColor.withOpacity(0.5),
-                      ),
-                      child: (_isLoading && !isVideoLoading)
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 3,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      buttonFgColor)))
-                          : const Text('التالي'),
-                    ),
+           else 
+             const SizedBox(height: 20), // Maintain spacing if no error
+
+          Padding( 
+              padding: const EdgeInsets.fromLTRB(20.0, 10.0, 20.0, 25.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: (_isLoading || isVideoLoading) // Disable button if general loading or video specifically is loading
+                      ? null
+                      : () {
+                          debugPrint("Next button pressed. Current step timer will be cancelled by _goToNextStep.");
+                          // _stepTimer?.cancel(); // _goToNextStep already cancels it.
+                          _goToNextStep();
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: buttonBgColor,
+                    foregroundColor: buttonFgColor,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'cairo'),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30.0)),
+                    elevation: 4,
+                    shadowColor: Colors.black.withAlpha((0.2 * 255).round()),
+                    disabledBackgroundColor: buttonBgColor.withAlpha((0.7 * 255).round()),
+                    disabledForegroundColor: buttonFgColor.withAlpha((0.5 * 255).round()),
                   ),
+                  child: (_isLoading && !isVideoLoading) // Show spinner in button only for non-video loading
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  buttonFgColor)))
+                      : const Text('التالي'),
                 ),
+              ),
+            ),
         ],
       );
     }
@@ -914,8 +1181,8 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                 size: 24, color: appBarElementsColor),
             tooltip: 'العودة',
             onPressed: () {
-              print("Back button pressed. Popping context with 'false'.");
-              Navigator.pop(context, false);
+              debugPrint("Back button pressed. Popping context with 'false'.");
+              Navigator.pop(context, false); // Indicate session was not completed.
             },
           ),
         ),
@@ -933,35 +1200,47 @@ class _ControlsOverlay extends StatefulWidget {
 }
 
 class _ControlsOverlayState extends State<_ControlsOverlay> {
+  // Listener is added to rebuild the overlay when play/pause state changes.
+  // Using a ValueKey on the _ControlsOverlay instance in the parent
+  // can also help ensure it rebuilds if the controller itself changes.
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_listener);
+    widget.controller.addListener(_onControllerUpdate);
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_listener);
+    widget.controller.removeListener(_onControllerUpdate);
     super.dispose();
   }
 
-  void _listener() {
+  void _onControllerUpdate() {
+    // This is called for many updates, including position.
+    // We only need to rebuild if isPlaying or isInitialized changes for the play/pause icon.
+    // However, VideoProgressIndicator relies on frequent updates.
     if (mounted) {
-      setState(() {});
+      setState(() {}); 
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Ensure the controller is initialized before trying to access value.isPlaying
+    if (!widget.controller.value.isInitialized) {
+      return const SizedBox.shrink(); // Or a loading indicator if preferred
+    }
+
     return Stack(
       children: <Widget>[
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 50),
           reverseDuration: const Duration(milliseconds: 200),
           child: widget.controller.value.isPlaying
-              ? const SizedBox.shrink()
-              : Container(
-                  color: Colors.black26,
+              ? const SizedBox.shrink() // Don't show play button if playing
+              : DecoratedBox( 
+                  key: const ValueKey<String>('playButton'), // Key for AnimatedSwitcher
+                  decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(30)), // Added borderRadius
                   child: const Center(
                       child: Icon(Icons.play_arrow,
                           color: Colors.white,
@@ -970,10 +1249,13 @@ class _ControlsOverlayState extends State<_ControlsOverlay> {
         ),
         GestureDetector(
           onTap: () {
-            if (widget.controller.value.isPlaying) {
-              widget.controller.pause();
-            } else {
-              widget.controller.play();
+            if (widget.controller.value.isInitialized) { 
+              if (widget.controller.value.isPlaying) {
+                widget.controller.pause();
+              } else {
+                widget.controller.play();
+              }
+              // setState is called by the listener _onControllerUpdate
             }
           },
         ),
@@ -986,9 +1268,9 @@ class _ControlsOverlayState extends State<_ControlsOverlay> {
               allowScrubbing: true,
               colors: VideoProgressColors(
                 playedColor:
-                    _SessionDetailsScreenState.buttonFgColor.withOpacity(0.8),
-                bufferedColor: Colors.white.withOpacity(0.4),
-                backgroundColor: Colors.white.withOpacity(0.2),
+                    _SessionDetailsScreenState.buttonFgColor.withAlpha((0.8 * 255).round()), 
+                bufferedColor: Colors.white.withAlpha((0.4 * 255).round()), 
+                backgroundColor: Colors.white.withAlpha((0.2 * 255).round()), 
               ),
             ),
           ),
