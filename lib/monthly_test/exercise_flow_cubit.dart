@@ -159,115 +159,115 @@ class ExerciseFlowCubit extends Cubit<ExerciseFlowState> {
             }
             break;
 
-          case 2:
-            if (newDetailsSize == 0 || _newDetailsList[0].localAssetPath == null) {
-              emit(const ExerciseFlowError("لا توجد بيانات (newDetails) أو مسار الصورة للخطوة 3.")); return;
-            }
-             if (detailsSize < 3) {
-                 emit(const ExerciseFlowError("لا توجد بيانات كافية للخطوة 3 (تحتاج 3 عناصر في details).")); return;
-             }
-            detailItem1ForStep2 = _detailsList[2]; // Use details[2] for step 2 (Q3)
-            final TestDetail newItemForDistractionStep2 = _newDetailsList[0];
+           case 2:
+          if (newDetailsSize == 0) {
+            emit(const ExerciseFlowError("لا توجد بيانات (newDetails) للخطوة 3.")); return;
+          }
+          detailItem1ForStep2 = _detailsList[min(2, detailsSize - 1)];
+          final TestDetail newItemForDistractionStep2 = _newDetailsList[0];
 
-            displayType = StepDisplayType.twoItemsChoice;
-            // Use the question from the details[2] or default
-            question = detailItem1ForStep2.question ?? (_monthlyTestTitle ?? "ما المطلوب؟");
+          displayType = StepDisplayType.twoItemsChoice;
+          String tempRightAnswerTextForQ2 = detailItem1ForStep2.rightAnswer?.trim() ?? '';
+          String rightAnswerTextForQuestion2 = tempRightAnswerTextForQ2.isNotEmpty ? tempRightAnswerTextForQ2 : (_monthlyTestTitle ?? "المطلوب");
+          question = "من يكون $rightAnswerTextForQuestion2؟";
 
-            item1 = _createDisplayItem(detailItem1ForStep2);
-            item2 = _createDisplayItem(newItemForDistractionStep2);
-            correctAnswerIdentifier = item1.identifier; // Correct answer is the identifier of details[2]
+          item1 = _createDisplayItem(detailItem1ForStep2);
+          item2 = _createDisplayItem(newItemForDistractionStep2);
+          correctAnswerIdentifier = item1.identifier;
 
-            if (item1.identifier == item2?.identifier) {
-              debugPrint("Warning (Cubit - Step 2/Q3): Correct item and distractor might be identical: '${item1.identifier}'. Consider providing distinct newDetail.");
-            }
-            break;
+          if (item1.identifier == item2.identifier) {
+            debugPrint("Warning (Cubit - Step 2/Q3): Correct item and distractor might be identical: '${item1.identifier}'. Consider providing distinct newDetail.");
+          }
+          break;
 
-          case 3:
-            if (detailsSize < 4) {
-                emit(const ExerciseFlowError("لا توجد بيانات كافية للخطوة 4 (تحتاج 4 عناصر في details).")); return;
-            }
-            primaryItemForStep3 = _detailsList[3]; // Use details[3] for step 3 (Q4)
-            // ignore: invalid_null_aware_operator
-            final String primaryType = primaryItemForStep3.dataTypeOfContent?.toLowerCase() ?? 'img';
+        case 3:
+          primaryItemForStep3 = _detailsList[min(3, detailsSize - 1)];
+          // dataTypeOfContent in TestDetail is String?, so ?. is correct and safe.
+          // If analyzer still warns, it might be a false positive or overly aggressive.
+          // ignore: invalid_null_aware_operator
+          final String primaryType = primaryItemForStep3.dataTypeOfContent?.toLowerCase() ?? 'img';
 
-            // Use the question from the details[3] or default
-            question = primaryItemForStep3.question ?? (_monthlyTestTitle ?? "ما المطلوب؟");
+          String tempRightAnswerTextForQ3 = primaryItemForStep3.rightAnswer?.trim() ?? '';
+          String rightAnswerTextForQuestion3 = tempRightAnswerTextForQ3.isNotEmpty ? tempRightAnswerTextForQ3 : (_monthlyTestTitle ?? "المطلوب");
+          question = "من يكون $rightAnswerTextForQuestion3؟";
 
-            displayType = StepDisplayType.twoItemsChoice;
-            item1 = _createDisplayItem(primaryItemForStep3);
-            correctAnswerIdentifier = item1.identifier; // Correct answer is the identifier of details[3]
+          displayType = StepDisplayType.twoItemsChoice;
+          item1 = _createDisplayItem(primaryItemForStep3);
+          correctAnswerIdentifier = item1.identifier;
 
-            if (primaryType == 'text') {
-              debugPrint("Cubit: Step 3 (idx 3/Q4) - Text primary. Finding text distractor.");
-              TestDetail? textDistractor;
-              if (newDetailsSize > 0) {
-                for (var ndItem in _newDetailsList) {
-                  // ignore: invalid_null_aware_operator
-                  if (ndItem.dataTypeOfContent?.toLowerCase() == 'text' && _createDisplayItem(ndItem).identifier != item1.identifier) {
-                    textDistractor = ndItem;
-                    break;
-                  }
+          if (primaryType == 'text') {
+            debugPrint("Cubit: Step 3 (idx 3/Q4) - Text primary. Finding text distractor.");
+            TestDetail? textDistractor;
+            if (newDetailsSize > 0) {
+              for (var ndItem in _newDetailsList) {
+                // ignore: invalid_null_aware_operator
+                if (ndItem.dataTypeOfContent?.toLowerCase() == 'text' && _createDisplayItem(ndItem).identifier != item1.identifier) {
+                  textDistractor = ndItem;
+                  break;
                 }
               }
-              if (textDistractor == null && detailsSize > 0) {
-                  for(var dItem in _detailsList) {
-                      // ignore: invalid_null_aware_operator
-                      if (dItem.detailId != primaryItemForStep3.detailId && dItem.dataTypeOfContent?.toLowerCase() == 'text') {
-                          if(_createDisplayItem(dItem).identifier != item1.identifier) {
-                             textDistractor = dItem;
-                             break;
-                          }
-                      }
-                  }
-              }
-
-              if (textDistractor != null) {
-                item2 = _createDisplayItem(textDistractor);
-                debugPrint("Cubit: Step 3 (idx 3/Q4) - Text vs Text. Correct: '${item1.identifier}', Distractor: '${item2?.identifier}'");
-              } else {
-                debugPrint("Cubit Error: No suitable text distractor found for step 3 (idx 3/Q4).");
-                emit(const ExerciseFlowError("لا توجد بيانات نصية كافية (كمشتت) للخطوة الرابعة."));
-                return;
-              }
-            } else { // Image primary
-              debugPrint("Cubit: Step 3 (idx 3/Q4) - Image primary. Requesting random image distractor from service path: $randomAssetFolderPath");
-              emit(const ExerciseFlowLoadingDistractor());
-
-              String? randomAssetPath;
-              try {
-                randomAssetPath = await getRandomAssetPathFromFolder(randomAssetFolderPath);
-
-                if (randomAssetPath == null) {
-                  debugPrint("Cubit Error: getRandomAssetPathFromFolder returned null for folder: $randomAssetFolderPath");
-                  throw Exception("فشل تحميل صورة المشتت العشوائية (المجلد فارغ أو خطأ في المسار).");
-                }
-
-                int attemptsToGetDifferent = 0;
-                while(randomAssetPath == item1.identifier && attemptsToGetDifferent < 3) {
-                    debugPrint("Cubit Warning: Random distractor '$randomAssetPath' is same as correct item '${item1.identifier}'. Retrying...");
-                    await Future.delayed(const Duration(milliseconds: 50));
-                    randomAssetPath = await getRandomAssetPathFromFolder(randomAssetFolderPath);
-                    attemptsToGetDifferent++;
-                    if(randomAssetPath == null) {
-                        throw Exception("فشل تحميل صورة المشتت العشوائية بعد محاولات التفادي.");
+            }
+            if (textDistractor == null && detailsSize > 0) {
+                for(var dItem in _detailsList) {
+                    // ignore: invalid_null_aware_operator
+                    if (dItem.id != primaryItemForStep3.id && dItem.dataTypeOfContent?.toLowerCase() == 'text') {
+                        if(_createDisplayItem(dItem).identifier != item1.identifier) {
+                           textDistractor = dItem;
+                           break;
+                        }
                     }
                 }
-                if(randomAssetPath == item1.identifier) {
-                    debugPrint("Cubit Warning: Could not get a different distractor after $attemptsToGetDifferent attempts. Proceeding with potentially same image.");
-                }
-
-                if (randomAssetPath == null) { // Final safety check
-                    throw Exception("فشل نهائي في تحميل مسار المشتت العشوائي.");
-                }
-                item2 = DisplayItem(type: 'Img', content: randomAssetPath, identifier: randomAssetPath, originalDetailIdForApi: -99); // Assuming random images don't have API IDs
-                debugPrint("Cubit: Step 3 (idx 3/Q4) - Image vs Image. Correct: '${item1.identifier}', Distractor: '${item2.identifier}'");
-              } catch (e) {
-                debugPrint("Cubit Error (Step 3 Img Distractor via service): $e");
-                emit(ExerciseFlowError("خطأ تحميل صورة المشتت: ${e.toString().replaceFirst("Exception: ", "")}"));
-                return; // Stop processing on error
-              }
             }
-            break;
+
+            if (textDistractor != null) {
+              item2 = _createDisplayItem(textDistractor);
+              debugPrint("Cubit: Step 3 (idx 3/Q4) - Text vs Text. Correct: '${item1.identifier}', Distractor: '${item2?.identifier}'");
+            } else {
+              debugPrint("Cubit Error: No suitable text distractor found for step 3 (idx 3/Q4).");
+              emit(const ExerciseFlowError("لا توجد بيانات نصية كافية (كمشتت) للخطوة الرابعة."));
+              return;
+            }
+          } else {
+            debugPrint("Cubit: Step 3 (idx 3/Q4) - Image primary. Requesting random image distractor from service path: $randomAssetFolderPath");
+            emit(const ExerciseFlowLoadingDistractor());
+
+            String? randomAssetPath;
+            try {
+              randomAssetPath = await getRandomAssetPathFromFolder(randomAssetFolderPath);
+
+              if (randomAssetPath == null) {
+                debugPrint("Cubit Error: getRandomAssetPathFromFolder returned null for folder: $randomAssetFolderPath");
+                throw Exception("فشل تحميل صورة المشتت العشوائية (المجلد فارغ أو خطأ في المسار).");
+              }
+
+              int attemptsToGetDifferent = 0;
+              while(randomAssetPath == item1.identifier && attemptsToGetDifferent < 3) {
+                  debugPrint("Cubit Warning: Random distractor '$randomAssetPath' is same as correct item '${item1.identifier}'. Retrying...");
+                  await Future.delayed(const Duration(milliseconds: 50));
+                  randomAssetPath = await getRandomAssetPathFromFolder(randomAssetFolderPath);
+                  attemptsToGetDifferent++;
+                  if(randomAssetPath == null) {
+                      throw Exception("فشل تحميل صورة المشتت العشوائية بعد محاولات التفادي.");
+                  }
+              }
+              if(randomAssetPath == item1.identifier) {
+                  debugPrint("Cubit Warning: Could not get a different distractor after $attemptsToGetDifferent attempts. Proceeding with potentially same image.");
+              }
+
+              // After the checks, if randomAssetPath is not null, we can use '!'
+              // This assumes DisplayItem constructor expects String for content and identifier
+              if (randomAssetPath == null) { // Final safety check, should be caught above
+                  throw Exception("فشل نهائي في تحميل مسار المشتت العشوائي.");
+              }
+              item2 = DisplayItem(type: 'Img', content: randomAssetPath!, identifier: randomAssetPath!, originalDetailIdForApi: -99);
+              debugPrint("Cubit: Step 3 (idx 3/Q4) - Image vs Image. Correct: '${item1.identifier}', Distractor: '${item2.identifier}'");
+            } catch (e) {
+              debugPrint("Cubit Error (Step 3 Img Distractor via service): $e");
+              emit(ExerciseFlowError("خطأ تحميل صورة المشتت: ${e.toString().replaceFirst("Exception: ", "")}"));
+              return;
+            }
+          }
+          break;
 
           default:
             throw Exception("رقم خطوة غير صالح: $stepIndex");

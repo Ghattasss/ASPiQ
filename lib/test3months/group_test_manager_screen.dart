@@ -205,7 +205,7 @@ class _GroupTestManagerScreenState extends State<GroupTestManagerScreen> {
           allQuestionsCollector.add(GeneratedQuestion(
             originalDetailId: detail.detailId,
             sectionTitle: currentSessionTitle,
-            questionText: "هل كان هذا التصرف صح ام خطأ",
+            questionText:"هل هذا التصرف صح ام خطأ؟",
             options: ["صح", "خطأ"],
             correctAnswer: detail.rightAnswer,
             imagePath1: detail.localAssetPath,
@@ -408,7 +408,7 @@ class _GroupTestManagerScreenState extends State<GroupTestManagerScreen> {
       }
     });
   }
-
+ 
   Future<void> _showInternalSuccessDialog() async {
     if (!mounted) return;
     _confettiController.play();

@@ -1,5 +1,46 @@
 import 'package:flutter/material.dart';
+import 'dart:math'; // لاستخدام min
 import 'group_test_manager_screen.dart'; // لاستيراد GeneratedQuestion
+
+// --- الودجت المضافة هنا كدالة على مستوى الملف ---
+Widget _buildImageErrorWidget(BuildContext context, Object error,
+    StackTrace? stackTrace, String? attemptedPath) {
+  debugPrint("Error loading asset image: $attemptedPath\n$error");
+  return Container(
+    padding: const EdgeInsets.all(10),
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red.shade200)),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.broken_image_outlined,
+            color: Colors.red.shade400, size: 40),
+        const SizedBox(height: 8),
+        Text('خطأ تحميل الصورة',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Colors.red.shade700,
+                fontSize: 12,
+                fontWeight: FontWeight.w500)),
+        if (attemptedPath != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Text(
+              '(المسار: $attemptedPath)',
+              textDirection: TextDirection.ltr,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+// --- نهاية الودجت المضافة ---
 
 class GroupTestQuestionDisplayScreen extends StatelessWidget {
   final String appBarTitle;
@@ -18,7 +59,6 @@ class GroupTestQuestionDisplayScreen extends StatelessWidget {
   Widget _buildSingleDisplayElement(
       BuildContext context, String? imagePath, String? textContent,
       {double height = 230}) {
-    // ... (هذه الدالة تبقى كما هي من الرد السابق)
     final screenWidth = MediaQuery.of(context).size.width;
     final elementWidth = screenWidth * 0.85;
     BoxFit imageFit = BoxFit.contain;
@@ -32,15 +72,8 @@ class GroupTestQuestionDisplayScreen extends StatelessWidget {
               height: height,
               width: elementWidth,
               fit: imageFit,
-              errorBuilder: (ctx, err, st) => Container(
-                  height: height,
-                  width: elementWidth,
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10)),
-                  child: Center(
-                      child: Icon(Icons.broken_image_outlined,
-                          color: Colors.grey.shade400, size: 50)))));
+              errorBuilder: (ctx, err, st) =>
+                  _buildImageErrorWidget(ctx, err, st, imagePath)));
     } else if (textContent != null) {
       content = Container(
           padding: const EdgeInsets.all(12.0),
@@ -82,14 +115,11 @@ class GroupTestQuestionDisplayScreen extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final screenWidth = MediaQuery.of(context).size.width;
-    // --- تعديل: جعل عرض زر الصورة أكبر ---
-    final double buttonWidth = screenWidth * 0.75; // يمكنك تعديل هذه النسبة
-    final double buttonHeight =
-        buttonWidth * 0.8; // للحفاظ على نسبة معقولة، أو اجعلها ثابتة
+    final double buttonWidth = screenWidth * 0.75;
+    final double buttonHeight = buttonWidth * 0.8;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-          vertical: 8.0), // مسافة رأسية بين أزرار الصور
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: InkWell(
         onTap: isLoading
             ? null
@@ -99,36 +129,24 @@ class GroupTestQuestionDisplayScreen extends StatelessWidget {
                 onAnswerSelected(
                     textualValueForComparison == question.correctAnswer);
               },
-        borderRadius: BorderRadius.circular(16), // زيادة دائرية الحواف
+        borderRadius: BorderRadius.circular(16),
         child: Card(
           clipBehavior: Clip.antiAlias,
           elevation: 4,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16), // زيادة دائرية الحواف
+              borderRadius: BorderRadius.circular(16),
               side: BorderSide(
-                  color: Colors.white.withOpacity(0.7),
-                  width: 2) // إطار أسمك قليلاً
-              ),
+                  color: Colors.white.withOpacity(0.7), width: 2)),
           color: Colors.white.withOpacity(0.95),
           child: Container(
-            // استخدام Container لتحديد الحجم
             width: buttonWidth,
             height: buttonHeight,
             padding: const EdgeInsets.all(6.0),
             child: Image.asset(
               imagePath,
-              fit: BoxFit.contain, // contain للحفاظ على الصورة كاملة
+              fit: BoxFit.contain,
               errorBuilder: (ctx, err, st) {
-                debugPrint(
-                    "Error loading asset in _buildImageOptionButton: $imagePath - $err");
-                return Container(
-                  decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(8)),
-                  child: Center(
-                      child: Icon(Icons.broken_image_outlined,
-                          color: Colors.grey.shade500)),
-                );
+                return _buildImageErrorWidget(ctx, err, st, imagePath);
               },
             ),
           ),
@@ -140,13 +158,11 @@ class GroupTestQuestionDisplayScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF2C73D9);
-    const Color questionCardBgColor = Colors.white;
-    const Color questionCardTextColor = primaryBlue;
+    // const Color questionCardBgColor = Colors.white; // لم نعد بحاجة إليها هنا لهذا العنصر تحديدًا
+    // const Color questionCardTextColor = primaryBlue; // سنستخدم الأبيض بدلاً منه
 
-    // Check if this is a session with ID > 28
     final bool isSpecialSession =
-        question.sectionTitle.contains("تحية الاخرين") ||
-            question.sectionTitle.contains("التواصل اللفظي");
+        question.parentSessionId > 28;
 
     return Scaffold(
       backgroundColor: primaryBlue,
@@ -171,48 +187,39 @@ class GroupTestQuestionDisplayScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (!isSpecialSession)
+              if (question.questionText.isNotEmpty)
+                // *** بداية التعديل لحذف الخلفية ***
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 16.0),
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                      color: questionCardBgColor,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            spreadRadius: 1,
-                            blurRadius: 5,
-                            offset: const Offset(0, 2))
-                      ]),
+                      horizontal: 16.0, vertical: 16.0), // يمكن تعديل الـ padding حسب الرغبة
+                  margin: const EdgeInsets.only(bottom: 24), // يمكن تعديل الـ margin حسب الرغبة
+                  // تم حذف الـ decoration
                   child: Text(
                     question.questionText,
                     style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         fontFamily: 'Cairo',
-                        color: questionCardTextColor,
+                        color: Colors.white, // تغيير لون النص إلى الأبيض
                         height: 1.4),
                     textAlign: TextAlign.center,
                   ),
                 ),
+              // *** نهاية التعديل ***
 
-              // Display the image (only the first image for special session)
-              if (question.imagePath1 != null)
+              if (question.imagePath1 != null || question.textContent1 != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8.0, vertical: 8.0),
                   child: _buildSingleDisplayElement(
-                      context, question.imagePath1, question.textContent1),
+                      context, question.imagePath1, question.textContent1,
+                      height: isSpecialSession ? 300 : 230),
                 ),
 
               const SizedBox(height: 24),
 
-              // Display options
               if (isSpecialSession)
-                // Special session options (صح - خطأ)
                 Column(
                   children: [
                     ElevatedButton(
@@ -264,8 +271,18 @@ class GroupTestQuestionDisplayScreen extends StatelessWidget {
                     ),
                   ],
                 )
+              else if (question.isImageOptions && question.optionImagePaths.isNotEmpty)
+                Column(
+                  children: List.generate(
+                    min(question.options.length, question.optionImagePaths.length), 
+                    (index) {
+                      final imagePath = question.optionImagePaths[index];
+                      final textualValue = question.options[index];
+                      return _buildImageOptionButton(context, imagePath, textualValue);
+                    }
+                  ).toList(),
+                )
               else
-                // Regular session options
                 ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
